@@ -7,9 +7,17 @@ const dotenv = require("dotenv");
 const connectDB = require("./database.js");
 const notFoundHandler = require("./middleware/notFoundHandler");
 const errorHandler = require("./middleware/errorHandler.js");
+const usersRouter = require("./api/users/users.routes.js");
 const recipeRouter = require("./api/recipe/recipe.Router.js");
 const ingredientRouter = require("./api/ingredient/ingredient.Router.js");
-const categorysRouter = require("./api/category/category.Router.js");
+const categoriesRouter = require("./api/category/category.router.js");
+const passport = require("passport");
+const {
+  localStrategy,
+  jwtStrategy,
+  JwtStrategy,
+} = require("./middleware/passport");
+
 //init
 const PORT = process.env.PORT || 20000;
 dotenv.config();
@@ -19,6 +27,8 @@ const app = express();
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
+passport.use("local", localStrategy);
+passport.use("jwt", JwtStrategy);
 
 // MongoDB connection
 connectDB();
@@ -26,7 +36,8 @@ connectDB();
 // Routes
 app.use("/api/recipes", recipeRouter);
 app.use("/api/ingredients", ingredientRouter);
-app.use("/api/categorys", categorysRouter);
+app.use("/api/categories", categoriesRouter);
+app.use("/api/users", usersRouter);
 // Not Found Handling middleware
 
 app.use(notFoundHandler);

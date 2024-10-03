@@ -1,4 +1,5 @@
 const express = require("express");
+const passport = require("passport");
 const {
   getAllCategory,
   getOneCategory,
@@ -8,10 +9,30 @@ const {
 } = require("./category.Controller");
 const categorysRouter = express.Router();
 
-categorysRouter.get("/", getAllCategory);
-categorysRouter.get("/:id", getOneCategory);
-categorysRouter.post("/", creatCategory);
-categorysRouter.put("/:id", updateCategory);
-categorysRouter.delete("/:id", deleteOneCategory);
+categorysRouter.get(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  getAllCategory
+);
+categorysRouter.get(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  getOneCategory
+);
+categorysRouter.post(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  creatCategory
+);
+categorysRouter.put(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  updateCategory
+);
+categorysRouter.delete(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  deleteOneCategory
+);
 
 module.exports = categorysRouter;

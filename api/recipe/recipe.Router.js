@@ -1,4 +1,5 @@
 const express = require("express");
+const passport = require("passport");
 const {
   getAllRecipes,
   getOneRecipe,
@@ -8,9 +9,29 @@ const {
 } = require("./recipe.Controller");
 const recipeRouter = express.Router();
 
-recipeRouter.get("/", getAllRecipes);
-recipeRouter.get("/:id", getOneRecipe);
-recipeRouter.post("/", creatRecipe);
-recipeRouter.put("/:id", updateRecipe);
-recipeRouter.delete("/:id", deleteOneRecipe);
+recipeRouter.get(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  getAllRecipes
+);
+recipeRouter.get(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  getOneRecipe
+);
+recipeRouter.post(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  creatRecipe
+);
+recipeRouter.put(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  updateRecipe
+);
+recipeRouter.delete(
+  "/",
+  passport.authenticate("jwt", { session: false }),
+  deleteOneRecipe
+);
 module.exports = recipeRouter;

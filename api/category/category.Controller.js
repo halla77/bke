@@ -3,8 +3,8 @@ const Category = require("../../models/Category");
 
 const getAllCategory = async (req, res, next) => {
   try {
-    const categorys = await Category.find();
-    return res.status(200).json(categorys);
+    const categories = await Category.find().populate("recipes");
+    return res.status(200).json(categories);
   } catch (error) {
     next(error);
   }
@@ -12,7 +12,7 @@ const getAllCategory = async (req, res, next) => {
 
 const getOneCategory = async (req, res, next) => {
   try {
-    const category = await Category.findById(req.params.id);
+    const category = await Category.findById(req.params.id).populate("recipes");
     if (!category)
       return res.status(404).json({ message: "Category not found" });
     return res.status(200).json(category);

@@ -9,28 +9,20 @@ const {
 } = require("./recipe.Controller");
 const recipeRouter = express.Router();
 
-recipeRouter.get(
-  "/",
-  passport.authenticate("jwt", { session: false }),
-  getAllRecipes
-);
-recipeRouter.get(
-  "/",
-  passport.authenticate("jwt", { session: false }),
-  getOneRecipe
-);
+recipeRouter.get("/", getAllRecipes);
+recipeRouter.get("/:id", getOneRecipe);
 recipeRouter.post(
   "/",
   passport.authenticate("jwt", { session: false }),
   creatRecipe
 );
 recipeRouter.put(
-  "/",
+  "/:id",
   passport.authenticate("jwt", { session: false }),
   updateRecipe
 );
 recipeRouter.delete(
-  "/",
+  "/:id",
   passport.authenticate("jwt", { session: false }),
   deleteOneRecipe
 );

@@ -10,7 +10,7 @@ const errorHandler = require("./middleware/errorHandler.js");
 const usersRouter = require("./api/users/users.routes.js");
 const recipeRouter = require("./api/recipe/recipe.Router.js");
 const ingredientRouter = require("./api/ingredient/ingredient.Router.js");
-const categoriesRouter = require("./api/category/category.router.js");
+const categoriesRouter = require("./api/category/category.Router.js");
 const passport = require("passport");
 const {
   localStrategy,

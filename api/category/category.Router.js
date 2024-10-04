@@ -9,28 +9,20 @@ const {
 } = require("./category.Controller");
 const categorysRouter = express.Router();
 
-categorysRouter.get(
-  "/",
-  passport.authenticate("jwt", { session: false }),
-  getAllCategory
-);
-categorysRouter.get(
-  "/",
-  passport.authenticate("jwt", { session: false }),
-  getOneCategory
-);
+categorysRouter.get("/", getAllCategory);
+categorysRouter.get("/:id", getOneCategory);
 categorysRouter.post(
   "/",
   passport.authenticate("jwt", { session: false }),
   creatCategory
 );
 categorysRouter.put(
-  "/",
+  "/:id",
   passport.authenticate("jwt", { session: false }),
   updateCategory
 );
 categorysRouter.delete(
-  "/",
+  "/:id",
   passport.authenticate("jwt", { session: false }),
   deleteOneCategory
 );

@@ -1,9 +1,12 @@
 const Recipe = require("../../models/Recipe");
 const Ingredient = require("../../models/Ingredient");
 const Category = require("../../models/Category");
+const User = require("../../models/User");
+
 const getAllRecipes = async (req, res, next) => {
   try {
     const recipes = await Recipe.find()
+      .populate("user", "username email")
       .populate("categorys")
       .populate("ingredients");
     return res.status(200).json(recipes);
@@ -11,35 +14,51 @@ const getAllRecipes = async (req, res, next) => {
     next(error);
   }
 };
+
 const getOneRecipe = async (req, res, next) => {
   try {
     const recipe = await Recipe.findById(req.params.id)
+      .populate("user", "username email")
       .populate("categorys")
       .populate("ingredients");
     if (!recipe) return res.status(404).json({ message: "Recipe not found" });
     return res.status(200).json(recipe);
   } catch (error) {
+    if (error.kind === "ObjectId") {
+      return res.status(400).json({ message: "Invalid recipe ID" });
+    }
     next(error);
   }
 };
 
 const creatRecipe = async (req, res, next) => {
   try {
-    // if (req.file) {
-    //   request.body.image = req.file.path;
-    // }
-    const newRecipe = await Recipe.create(req.body);
+    const recipeInfo = {
+      name: req.body.name,
+      user: req.user._id,
+    };
+    const newRecipe = await Recipe.create({ ...req.body, ...recipeInfo });
     const ingredients = req.body.ingredients;
     const categorys = req.body.categorys;
-    const updateIngredients = await Ingredient.updateMany(
-      { _id: ingredients },
+
+    await Ingredient.updateMany(
+      { _id: { $in: ingredients } },
       { $push: { recipes: newRecipe._id } }
     );
-    const updateCategorys = await Category.updateMany(
-      { _id: categorys },
+    await Category.updateMany(
+      { _id: { $in: categorys } },
       { $push: { recipes: newRecipe._id } }
     );
-    return res.status(201).json(newRecipe);
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { recipes: newRecipe._id },
+    });
+
+    const populatedRecipe = await Recipe.findById(newRecipe._id)
+      .populate("user", "username email")
+      .populate("categorys")
+      .populate("ingredients");
+
+    return res.status(201).json(populatedRecipe);
   } catch (error) {
     next(error);
   }
@@ -52,6 +71,7 @@ const updateRecipe = async (req, res, next) => {
       req.body,
       { new: true }
     )
+      .populate("user", "username email")
       .populate("categorys")
       .populate("ingredients");
 
@@ -64,11 +84,11 @@ const updateRecipe = async (req, res, next) => {
 
     await Ingredient.updateMany(
       { _id: { $in: ingredients } },
-      { $push: { recipes: updatedRecipe._id } }
+      { $addToSet: { recipes: updatedRecipe._id } }
     );
     await Category.updateMany(
       { _id: { $in: categorys } },
-      { $push: { recipes: updatedRecipe._id } }
+      { $addToSet: { recipes: updatedRecipe._id } }
     );
 
     return res.status(200).json(updatedRecipe);
@@ -100,6 +120,11 @@ const deleteOneRecipe = async (req, res, next) => {
       { _id: { $in: categorys } },
       { $pull: { recipes: deletedRecipe._id } }
     );
+
+    // Remove the recipe reference from the user
+    await User.findByIdAndUpdate(deletedRecipe.user, {
+      $pull: { recipes: deletedRecipe._id },
+    });
 
     return res.status(200).json({ message: "Recipe deleted successfully" });
   } catch (error) {

@@ -29,7 +29,7 @@ const generateToken = (user) => {
 exports.signup = async (req, res, next) => {
   try {
     const { username, email, password, confirmPassword } = req.body;
-
+    console.log("Received data:", req.body); // Log the received data
     // Check if all required fields are provide
     if (!username || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: "All fields are required" });
@@ -85,27 +85,10 @@ exports.signin = async (req, res, next) => {
   }
 };
 
-exports.signout = async (req, res, next) => {
-  try {
-    // Here we're assuming the token is sent in the Authorization header
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(400).json({ message: "No token provided" });
-    }
-
-    // In a real-world scenario, you might want to add this token to a blacklist
-    // or invalidate it in your database. For this example, we'll just send a success response.
-
-    res.status(200).json({ message: "Successfully signed out" });
-  } catch (err) {
-    next(err);
-  }
-};
 exports.getUsers = async (req, res, next) => {
   try {
-    const users = await User.find();
-    res.status(201).json(users);
+    const users = await User.find().populate("recipes");
+    res.status(200).json(users);
   } catch (err) {
     next(err);
   }
@@ -156,21 +139,17 @@ exports.getOneUser = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // Find the user by ID
-    const user = await User.findById(id);
+    const user = await User.findById(id).populate("recipes");
 
-    // If user not found, return 404
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // If user is found, return user data
-    // Exclude sensitive information like password
     const userData = {
       id: user._id,
       username: user.username,
       email: user.email,
-      // Add any other fields you want to include
+      recipes: user.recipes,
     };
 
     res.status(200).json(userData);

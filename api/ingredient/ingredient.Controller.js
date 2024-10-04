@@ -3,7 +3,7 @@ const Ingredient = require("../../models/Ingredient");
 
 const getAllIngredient = async (req, res, next) => {
   try {
-    const ingredients = await Ingredient.find();
+    const ingredients = await Ingredient.find().populate("recipes");
     return res.status(200).json(ingredients);
   } catch (error) {
     next(error);
@@ -12,7 +12,9 @@ const getAllIngredient = async (req, res, next) => {
 
 const getOneIngredient = async (req, res, next) => {
   try {
-    const ingredient = await Ingredient.findById(req.params.id);
+    const ingredient = await Ingredient.findById(req.params.id).populate(
+      "recipes"
+    );
     if (!ingredient)
       return res.status(404).json({ message: "Ingredient not found" });
     return res.status(200).json(ingredient);

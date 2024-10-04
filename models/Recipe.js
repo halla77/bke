@@ -10,9 +10,10 @@ const recipeSchema = new Schema(
     recipeImage: {
       type: String,
     },
-    // user: {
-    //   type: Number,
-    // },
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );

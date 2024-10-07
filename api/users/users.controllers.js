@@ -28,10 +28,10 @@ const generateToken = (user) => {
 
 exports.signup = async (req, res, next) => {
   try {
-    const { username, email, password, confirmPassword } = req.body;
+    const { username, email, password, confirmPassword, gender } = req.body;
     console.log("Received data:", req.body); // Log the received data
     // Check if all required fields are provide
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username || !email || !password || !confirmPassword || !gender) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -54,11 +54,23 @@ exports.signup = async (req, res, next) => {
       return res.status(500).json({ message: "Error hashing password" });
     }
 
+    // Set default profile image based on gender
+    let defaultProfileImage;
+    if (gender === "male") {
+      defaultProfileImage = "./media/chef_4247811.png";
+    } else if (gender === "female") {
+      defaultProfileImage = "./media/chef_4124569.png";
+    } else {
+      defaultProfileImage = "./media/chef_4247811.png";
+    }
+
     // Create new user
     const user = new User({
       username,
       email,
       password: hashedPassword,
+      gender,
+      profileImage: defaultProfileImage,
     });
 
     await user.save();
@@ -85,32 +97,87 @@ exports.signin = async (req, res, next) => {
   }
 };
 
-exports.getUsers = async (req, res, next) => {
+exports.getMe = async (req, res, next) => {
   try {
-    const users = await User.find().populate("recipes");
+    const user = await User.findById(req.user.id)
+      .select("-password")
+      .populate("recipes")
+      .populate("followers", "username email profileImage")
+      .populate("following", "username email profileImage")
+      .populate("favorites");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error("Get me error:", error);
+    res
+      .status(500)
+      .json({ message: "Error retrieving user profile", error: error.message });
+  }
+};
+
+exports.getProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select("-password")
+      .populate("recipes")
+      .populate("followers", "username email profileImage")
+      .populate("following", "username email profileImage");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res
+      .status(500)
+      .json({ message: "Error retrieving user profile", error: error.message });
+  }
+};
+
+exports.getAllUsers = async (req, res, next) => {
+  try {
+    const { username } = req.query;
+    let query = {};
+
+    if (username) {
+      query.username = { $regex: username, $options: "i" }; // Case-insensitive search
+    }
+
+    const users = await User.find(query)
+      .select("username email profileImage")
+      .limit(10); // Limit the number of results
+
     res.status(200).json(users);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    console.error("Search users error:", error);
+    res
+      .status(500)
+      .json({ message: "Error searching users", error: error.message });
   }
 };
 
 exports.updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { username, email } = req.body;
+    const { username, email, bio } = req.body;
 
-    // Check if user exists
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if new username or email already exists
     if (username && username !== user.username) {
       const existingUsername = await User.findOne({ username });
       if (existingUsername) {
         return res.status(400).json({ message: "Username already exists" });
       }
+      user.username = username;
     }
 
     if (email && email !== user.email) {
@@ -118,15 +185,24 @@ exports.updateUser = async (req, res, next) => {
       if (existingEmail) {
         return res.status(400).json({ message: "Email already exists" });
       }
+      user.email = email;
     }
 
-    // Update user
-    user.username = username || user.username;
-    user.email = email || user.email;
+    if (bio) user.bio = bio;
+
+    // Handle profile image upload
+    if (req.file) {
+      user.profileImage = req.file.path;
+    }
 
     await user.save();
 
-    res.status(200).json({ message: "User updated successfully", user });
+    const updatedUser = await User.findById(id)
+      .select("-password")
+      .populate("recipes");
+    res
+      .status(200)
+      .json({ message: "User updated successfully", user: updatedUser });
   } catch (err) {
     console.error("Update user error:", err);
     res
@@ -135,28 +211,171 @@ exports.updateUser = async (req, res, next) => {
   }
 };
 
-exports.getOneUser = async (req, res, next) => {
+exports.followUser = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const userToFollow = await User.findById(req.params.id);
+    const currentUser = await User.findById(req.user.id);
 
-    const user = await User.findById(id).populate("recipes");
+    if (!userToFollow || !currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (currentUser.following.includes(userToFollow._id)) {
+      return res
+        .status(400)
+        .json({ message: "You are already following this user" });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, {
+      $push: { following: userToFollow._id },
+    });
+    await User.findByIdAndUpdate(req.params.id, {
+      $push: { followers: currentUser._id },
+    });
+
+    res.status(200).json({ message: "User followed successfully" });
+  } catch (error) {
+    console.error("Follow user error:", error);
+    res
+      .status(500)
+      .json({ message: "Error following user", error: error.message });
+  }
+};
+
+exports.unfollowUser = async (req, res, next) => {
+  try {
+    const userToUnfollow = await User.findById(req.params.id);
+    const currentUser = await User.findById(req.user.id);
+
+    if (!userToUnfollow || !currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!currentUser.following.includes(userToUnfollow._id)) {
+      return res
+        .status(400)
+        .json({ message: "You are not following this user" });
+    }
+
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { following: userToUnfollow._id },
+    });
+    await User.findByIdAndUpdate(req.params.id, {
+      $pull: { followers: currentUser._id },
+    });
+
+    res.status(200).json({ message: "User unfollowed successfully" });
+  } catch (error) {
+    console.error("Unfollow user error:", error);
+    res
+      .status(500)
+      .json({ message: "Error unfollowing user", error: error.message });
+  }
+};
+
+exports.getFollowers = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).populate(
+      "followers",
+      "username email"
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user.followers);
+  } catch (error) {
+    console.error("Get followers error:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting followers", error: error.message });
+  }
+};
+
+exports.getFollowing = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).populate(
+      "following",
+      "username email"
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user.following);
+  } catch (error) {
+    console.error("Get following error:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting following", error: error.message });
+  }
+};
+
+// Get user's favorite recipes
+exports.getFavoriteRecipes = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).populate("favorites");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user.favorites);
+  } catch (error) {
+    console.error("Get favorite recipes error:", error);
+    res.status(500).json({
+      message: "Error retrieving favorite recipes",
+      error: error.message,
+    });
+  }
+};
+
+// Add a recipe to favorites
+exports.addToFavorites = async (req, res, next) => {
+  try {
+    const { recipeId } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $addToSet: { favorites: recipeId } },
+      { new: true }
+    ).populate("favorites");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const userData = {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      recipes: user.recipes,
-    };
+    res.status(200).json({
+      message: "Recipe added to favorites",
+      favorites: user.favorites,
+    });
+  } catch (error) {
+    console.error("Add to favorites error:", error);
+    res.status(500).json({
+      message: "Error adding recipe to favorites",
+      error: error.message,
+    });
+  }
+};
 
-    res.status(200).json(userData);
-  } catch (err) {
-    console.error("Get user error:", err);
-    res
-      .status(500)
-      .json({ message: "Error retrieving user", error: err.message });
+// Remove a recipe from favorites
+exports.removeFromFavorites = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { favorites: recipeId } },
+      { new: true }
+    ).populate("favorites");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Recipe removed from favorites",
+      favorites: user.favorites,
+    });
+  } catch (error) {
+    console.error("Remove from favorites error:", error);
+    res.status(500).json({
+      message: "Error removing recipe from favorites",
+      error: error.message,
+    });
   }
 };

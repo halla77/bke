@@ -10,16 +10,18 @@ const errorHandler = require("./middleware/errorHandler.js");
 const usersRouter = require("./api/users/users.routes.js");
 const recipeRouter = require("./api/recipe/recipe.Router.js");
 const ingredientRouter = require("./api/ingredient/ingredient.Router.js");
-const categoriesRouter = require("./api/category/category.Router.js");
+const categorysRouter = require("./api/category/category.Router.js");
 const passport = require("passport");
+const path = require("path");
 const {
   localStrategy,
   jwtStrategy,
   JwtStrategy,
 } = require("./middleware/passport");
+const commentRouter = require("./api/comment/comment.Router");
 
 //init
-const PORT = process.env.PORT || 20000;
+const PORT = process.env.PORT || 10000;
 dotenv.config();
 const app = express();
 
@@ -36,8 +38,11 @@ connectDB();
 // Routes
 app.use("/api/recipes", recipeRouter);
 app.use("/api/ingredients", ingredientRouter);
-app.use("/api/categories", categoriesRouter);
+app.use("/api/category", categorysRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/comments", commentRouter);
+app.use("/media", express.static(path.join(__dirname, "media")));
+
 // Not Found Handling middleware
 
 app.use(notFoundHandler);

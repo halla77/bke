@@ -7,7 +7,7 @@ const getAllRecipes = async (req, res, next) => {
   try {
     const recipes = await Recipe.find()
       .populate("user", "username email")
-      .populate("categorys")
+      .populate("category")
       .populate("ingredients");
     return res.status(200).json(recipes);
   } catch (error) {
@@ -33,32 +33,33 @@ const getOneRecipe = async (req, res, next) => {
 
 const creatRecipe = async (req, res, next) => {
   try {
-    const recipeInfo = {
-      name: req.body.name,
-      user: req.user._id,
-    };
-    const newRecipe = await Recipe.create({ ...req.body, ...recipeInfo });
-    const ingredients = req.body.ingredients;
-    const categorys = req.body.categorys;
+    const {
+      name,
+      description,
+      ingredients,
+      instructions,
+      timeToCook,
+      calories,
+      category,
+    } = req.body;
 
-    await Ingredient.updateMany(
-      { _id: { $in: ingredients } },
-      { $push: { recipes: newRecipe._id } }
-    );
-    await Category.updateMany(
-      { _id: { $in: categorys } },
-      { $push: { recipes: newRecipe._id } }
-    );
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: { recipes: newRecipe._id },
+    const recipeImage = req.file ? req.file.path : null;
+    console.log(recipeImage);
+
+    const newRecipe = new Recipe({
+      name,
+      description,
+      ingredients,
+      instructions,
+      timeToCook,
+      calories,
+      category,
+      recipeImage,
+      user: req.user.id,
     });
 
-    const populatedRecipe = await Recipe.findById(newRecipe._id)
-      .populate("user", "username email")
-      .populate("categorys")
-      .populate("ingredients");
-
-    return res.status(201).json(populatedRecipe);
+    const savedRecipe = await newRecipe.save();
+    res.status(201).json(savedRecipe);
   } catch (error) {
     next(error);
   }
@@ -66,34 +67,40 @@ const creatRecipe = async (req, res, next) => {
 
 const updateRecipe = async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const {
+      name,
+      description,
+      ingredients,
+      instructions,
+      timeToCook,
+      calories,
+      category,
+    } = req.body;
+    const recipeImage = req.file ? req.file.path : undefined;
+
     const updatedRecipe = await Recipe.findByIdAndUpdate(
-      req.params.id,
-      req.body,
+      id,
+      {
+        name,
+        description,
+        ingredients,
+        instructions,
+        timeToCook,
+        calories,
+        category,
+        ...(recipeImage && { recipeImage }),
+      },
       { new: true }
-    )
-      .populate("user", "username email")
-      .populate("categorys")
-      .populate("ingredients");
+    );
 
     if (!updatedRecipe) {
       return res.status(404).json({ message: "Recipe not found" });
     }
 
-    const ingredients = req.body.ingredients;
-    const categorys = req.body.categorys;
-
-    await Ingredient.updateMany(
-      { _id: { $in: ingredients } },
-      { $addToSet: { recipes: updatedRecipe._id } }
-    );
-    await Category.updateMany(
-      { _id: { $in: categorys } },
-      { $addToSet: { recipes: updatedRecipe._id } }
-    );
-
-    return res.status(200).json(updatedRecipe);
+    res.status(200).json(updatedRecipe);
   } catch (error) {
-    if (error.kind === "ObjectId") {
+    if (error.name === "CastError") {
       return res.status(400).json({ message: "Invalid recipe ID" });
     }
     next(error);
@@ -125,8 +132,124 @@ const deleteOneRecipe = async (req, res, next) => {
     await User.findByIdAndUpdate(deletedRecipe.user, {
       $pull: { recipes: deletedRecipe._id },
     });
+    // Remove comments associated with this recipe
+    Comment.deleteMany({ recipe: deletedRecipe._id });
 
     return res.status(200).json({ message: "Recipe deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const toggleLikeRecipe = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const recipe = await Recipe.findById(id);
+    if (!recipe) {
+      return res.status(404).json({ message: "Recipe not found" });
+    }
+
+    const userLikedIndex = recipe.likes.indexOf(userId);
+    const userDislikedIndex = recipe.dislikes.indexOf(userId);
+
+    if (userLikedIndex > -1) {
+      // User already liked, so unlike
+      recipe.likes.splice(userLikedIndex, 1);
+    } else {
+      // Add like and remove dislike if exists
+      recipe.likes.push(userId);
+      if (userDislikedIndex > -1) {
+        recipe.dislikes.splice(userDislikedIndex, 1);
+      }
+    }
+
+    await recipe.save();
+
+    res
+      .status(200)
+      .json({ likes: recipe.likes.length, dislikes: recipe.dislikes.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const toggleDislikeRecipe = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const recipe = await Recipe.findById(id);
+    if (!recipe) {
+      return res.status(404).json({ message: "Recipe not found" });
+    }
+
+    const userLikedIndex = recipe.likes.indexOf(userId);
+    const userDislikedIndex = recipe.dislikes.indexOf(userId);
+
+    if (userDislikedIndex > -1) {
+      // User already disliked, so remove dislike
+      recipe.dislikes.splice(userDislikedIndex, 1);
+    } else {
+      // Add dislike and remove like if exists
+      recipe.dislikes.push(userId);
+      if (userLikedIndex > -1) {
+        recipe.likes.splice(userLikedIndex, 1);
+      }
+    }
+
+    await recipe.save();
+
+    res
+      .status(200)
+      .json({ likes: recipe.likes.length, dislikes: recipe.dislikes.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getLikesForRecipe = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const recipe = await Recipe.findById(id).populate(
+      "likes",
+      "username email"
+    ); // Adjust fields as needed
+
+    if (!recipe) {
+      return res.status(404).json({ message: "Recipe not found" });
+    }
+
+    res.status(200).json({
+      recipeId: recipe._id,
+      likes: recipe.likes,
+      totalLikes: recipe.likes.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getDislikesForRecipe = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const recipe = await Recipe.findById(id).populate(
+      "dislikes",
+      "username email"
+    ); // Adjust fields as needed
+
+    if (!recipe) {
+      return res.status(404).json({ message: "Recipe not found" });
+    }
+
+    res.status(200).json({
+      recipeId: recipe._id,
+      dislikes: recipe.dislikes,
+      totalDislikes: recipe.dislikes.length,
+    });
   } catch (error) {
     next(error);
   }
@@ -138,4 +261,8 @@ module.exports = {
   creatRecipe,
   updateRecipe,
   deleteOneRecipe,
+  toggleLikeRecipe,
+  toggleDislikeRecipe,
+  getLikesForRecipe,
+  getDislikesForRecipe,
 };

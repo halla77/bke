@@ -19,7 +19,7 @@ const getOneRecipe = async (req, res, next) => {
   try {
     const recipe = await Recipe.findById(req.params.id)
       .populate("user", "username email")
-      .populate("categorys")
+      .populate("category")
       .populate("ingredients");
     if (!recipe) return res.status(404).json({ message: "Recipe not found" });
     return res.status(200).json(recipe);
@@ -45,22 +45,40 @@ const creatRecipe = async (req, res, next) => {
 
     const recipeImage = req.file ? req.file.path : null;
     console.log(recipeImage);
-
+    console.log(typeof ingredients);
+    const ingredientIds = ingredients.split(",").map((id) => id);
+    const categoryIds = category.split(",").map((id) => id);
     const newRecipe = new Recipe({
       name,
       description,
-      ingredients,
+      ingredients: ingredientIds,
       instructions,
       timeToCook,
       calories,
-      category,
+      category: categoryIds,
       recipeImage,
       user: req.user.id,
     });
 
     const savedRecipe = await newRecipe.save();
+    // The issue is that the ingredients are being passed as a string instead of an array of ObjectIds
+    // We need to parse the string and convert it to an array of ObjectIds
+
+    await Ingredient.updateMany(
+      { _id: { $in: ingredientIds } },
+      { $push: { recipes: savedRecipe._id } }
+    );
+
+    await Category.updateMany(
+      { _id: { $in: categoryIds } },
+      { $push: { recipes: savedRecipe._id } }
+    );
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { recipes: newRecipe._id },
+    });
     res.status(201).json(savedRecipe);
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -124,7 +142,7 @@ const deleteOneRecipe = async (req, res, next) => {
 
     // Remove the recipe reference from categories
     await Category.updateMany(
-      { _id: { $in: categorys } },
+      { _id: { $in: category } },
       { $pull: { recipes: deletedRecipe._id } }
     );
 
@@ -132,8 +150,8 @@ const deleteOneRecipe = async (req, res, next) => {
     await User.findByIdAndUpdate(deletedRecipe.user, {
       $pull: { recipes: deletedRecipe._id },
     });
-    // Remove comments associated with this recipe
-    Comment.deleteMany({ recipe: deletedRecipe._id });
+    // // Remove comments associated with this recipe
+    // Comment.deleteMany({ recipe: deletedRecipe._id });
 
     return res.status(200).json({ message: "Recipe deleted successfully" });
   } catch (error) {
@@ -255,6 +273,53 @@ const getDislikesForRecipe = async (req, res, next) => {
   }
 };
 
+const searchRecipes = async (req, res, next) => {
+  try {
+    const { query, cookTime, calories, ingredient, category } = req.query;
+
+    let searchCriteria = {};
+
+    if (query) {
+      searchCriteria.name = { $regex: query, $options: "i" };
+    }
+
+    if (cookTime) {
+      searchCriteria.timeToCook = { $lte: parseInt(cookTime) };
+    }
+
+    if (calories) {
+      searchCriteria.calories = { $lte: parseInt(calories) };
+    }
+
+    if (ingredient) {
+      const ingredientDoc = await Ingredient.findOne({
+        name: { $regex: ingredient, $options: "i" },
+      });
+      if (ingredientDoc) {
+        searchCriteria.ingredients = ingredientDoc._id;
+      }
+    }
+
+    if (category) {
+      const categoryDoc = await Category.findOne({
+        name: { $regex: category, $options: "i" },
+      });
+      if (categoryDoc) {
+        searchCriteria.category = categoryDoc._id;
+      }
+    }
+
+    const recipes = await Recipe.find(searchCriteria)
+      .populate("user", "username email")
+      .populate("category")
+      .populate("ingredients");
+
+    res.status(200).json(recipes);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllRecipes,
   getOneRecipe,
@@ -265,4 +330,5 @@ module.exports = {
   toggleDislikeRecipe,
   getLikesForRecipe,
   getDislikesForRecipe,
+  searchRecipes,
 };

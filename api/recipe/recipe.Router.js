@@ -10,6 +10,7 @@ const {
   toggleDislikeRecipe,
   getLikesForRecipe,
   getDislikesForRecipe,
+  searchRecipes, // Add this line
 } = require("./recipe.Controller");
 const upload = require("../../middleware/multer");
 const recipeRouter = express.Router();
@@ -45,4 +46,6 @@ recipeRouter.post(
 );
 recipeRouter.get("/:id/likes", getLikesForRecipe);
 recipeRouter.get("/:id/dislikes", getDislikesForRecipe);
+recipeRouter.get("/search", searchRecipes); // Add this new route for searching recipes
+
 module.exports = recipeRouter;

@@ -132,7 +132,7 @@ const deleteOneRecipe = async (req, res, next) => {
       return res.status(404).json({ message: "Recipe not found" });
 
     const ingredients = deletedRecipe.ingredients;
-    const categorys = deletedRecipe.categorys;
+    const category = deletedRecipe.category;
 
     // Remove the recipe reference from ingredients
     await Ingredient.updateMany(
@@ -150,8 +150,6 @@ const deleteOneRecipe = async (req, res, next) => {
     await User.findByIdAndUpdate(deletedRecipe.user, {
       $pull: { recipes: deletedRecipe._id },
     });
-    // // Remove comments associated with this recipe
-    // Comment.deleteMany({ recipe: deletedRecipe._id });
 
     return res.status(200).json({ message: "Recipe deleted successfully" });
   } catch (error) {

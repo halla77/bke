@@ -99,12 +99,17 @@ exports.signin = async (req, res, next) => {
 
 exports.getMe = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id)
-      .select("-password")
-      .populate("recipes")
+    const user = await User.findById(req.user._id)
+      .populate({
+        path: "recipes",
+        populate: [
+          { path: "ingredients", select: "name" },
+          { path: "category", select: "name" },
+        ],
+      })
+      .populate("favorites")
       .populate("followers", "username email profileImage")
-      .populate("following", "username email profileImage")
-      .populate("favorites");
+      .populate("following", "username email profileImage");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -112,13 +117,9 @@ exports.getMe = async (req, res, next) => {
 
     res.status(200).json(user);
   } catch (error) {
-    console.error("Get me error:", error);
-    res
-      .status(500)
-      .json({ message: "Error retrieving user profile", error: error.message });
+    next(error);
   }
 };
-
 exports.getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id)
@@ -352,27 +353,38 @@ exports.getFavoriteRecipes = async (req, res, next) => {
 // Add a recipe to favorites
 exports.addToFavorites = async (req, res, next) => {
   try {
-    const { recipeId } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { $addToSet: { favorites: recipeId } },
-      { new: true }
-    ).populate("favorites");
+    const { recipeId } = req.params;
+    const userId = req.user._id;
 
+    // Log the incoming data
+    console.log("Adding to favorites:", { userId, recipeId });
+
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({
-      message: "Recipe added to favorites",
-      favorites: user.favorites,
-    });
+    // Check if the recipe is already in favorites
+    if (user.favorites.includes(recipeId)) {
+      return res.status(400).json({ message: "Recipe already in favorites" });
+    }
+
+    // Add the recipe to favorites
+    user.favorites.push(recipeId);
+    await user.save();
+
+    // Log the updated user
+    console.log("Updated user:", user);
+
+    res
+      .status(200)
+      .json({
+        message: "Recipe added to favorites",
+        favorites: user.favorites,
+      });
   } catch (error) {
-    console.error("Add to favorites error:", error);
-    res.status(500).json({
-      message: "Error adding recipe to favorites",
-      error: error.message,
-    });
+    console.error("Error adding to favorites:", error);
+    next(error);
   }
 };
 

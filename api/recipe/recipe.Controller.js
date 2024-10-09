@@ -86,6 +86,7 @@ const creatRecipe = async (req, res, next) => {
 const updateRecipe = async (req, res, next) => {
   try {
     const { id } = req.params;
+    console.log(id);
     const {
       name,
       description,
@@ -95,6 +96,8 @@ const updateRecipe = async (req, res, next) => {
       calories,
       category,
     } = req.body;
+    const ingredientIds = ingredients.split(",").map((id) => id);
+    const categoryIds = category.split(",").map((id) => id);
     const recipeImage = req.file ? req.file.path : undefined;
 
     const updatedRecipe = await Recipe.findByIdAndUpdate(
@@ -102,11 +105,11 @@ const updateRecipe = async (req, res, next) => {
       {
         name,
         description,
-        ingredients,
+        ingredients: ingredientIds,
         instructions,
         timeToCook,
         calories,
-        category,
+        category: categoryIds,
         ...(recipeImage && { recipeImage }),
       },
       { new: true }
@@ -118,6 +121,7 @@ const updateRecipe = async (req, res, next) => {
 
     res.status(200).json(updatedRecipe);
   } catch (error) {
+    console.log(error);
     if (error.name === "CastError") {
       return res.status(400).json({ message: "Invalid recipe ID" });
     }

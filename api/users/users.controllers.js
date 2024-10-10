@@ -165,15 +165,22 @@ exports.getAllUsers = async (req, res, next) => {
 
 exports.updateUser = async (req, res, next) => {
   try {
+    console.log("Received file:", req.file);
+    console.log("Received body:", req.body);
+
     const userId = req.user._id; // Get the user ID from the authenticated user
-    const { username, email, bio, gender, currentPassword, newPassword } =
-      req.body;
+
+    const { username, email, bio, gender } = req.body;
 
     const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
+    // Handle profile image upload
+    if (req.file) {
+      user.profileImage = req.file.path;
+    }
     // Handle username update
     if (username && username !== user.username) {
       const existingUsername = await User.findOne({ username });
@@ -195,29 +202,6 @@ exports.updateUser = async (req, res, next) => {
     // Update other fields
     if (bio) user.bio = bio;
     if (gender) user.gender = gender;
-
-    // Handle profile image upload
-    if (req.file) {
-      user.profileImage = req.file.path;
-    }
-
-    // Handle password change
-    if (currentPassword && newPassword) {
-      // Verify current password
-      const isMatch = await bcrypt.compare(currentPassword, user.password);
-      if (!isMatch) {
-        return res
-          .status(400)
-          .json({ message: "Current password is incorrect" });
-      }
-
-      // Hash and set new password
-      const hashedPassword = await hashPassword(newPassword);
-      if (!hashedPassword) {
-        return res.status(500).json({ message: "Error hashing new password" });
-      }
-      user.password = hashedPassword;
-    }
 
     await user.save();
 
@@ -376,12 +360,10 @@ exports.addToFavorites = async (req, res, next) => {
     // Log the updated user
     console.log("Updated user:", user);
 
-    res
-      .status(200)
-      .json({
-        message: "Recipe added to favorites",
-        favorites: user.favorites,
-      });
+    res.status(200).json({
+      message: "Recipe added to favorites",
+      favorites: user.favorites,
+    });
   } catch (error) {
     console.error("Error adding to favorites:", error);
     next(error);

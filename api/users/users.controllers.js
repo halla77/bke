@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const saltRounds = 10;
 const dotenv = require("dotenv");
+const mongoose = require("mongoose");
 
 dotenv.config();
 const hashPassword = async (password) => {
@@ -165,15 +166,22 @@ exports.getAllUsers = async (req, res, next) => {
 
 exports.updateUser = async (req, res, next) => {
   try {
+    console.log("Received file:", req.file);
+    console.log("Received body:", req.body);
+
     const userId = req.user._id; // Get the user ID from the authenticated user
-    const { username, email, bio, gender, currentPassword, newPassword } =
-      req.body;
+
+    const { username, email, bio, gender } = req.body;
 
     const user = await User.findById(userId);
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
+    // Handle profile image upload
+    if (req.file) {
+      user.profileImage = req.file.path;
+    }
     // Handle username update
     if (username && username !== user.username) {
       const existingUsername = await User.findOne({ username });
@@ -195,29 +203,6 @@ exports.updateUser = async (req, res, next) => {
     // Update other fields
     if (bio) user.bio = bio;
     if (gender) user.gender = gender;
-
-    // Handle profile image upload
-    if (req.file) {
-      user.profileImage = req.file.path;
-    }
-
-    // Handle password change
-    if (currentPassword && newPassword) {
-      // Verify current password
-      const isMatch = await bcrypt.compare(currentPassword, user.password);
-      if (!isMatch) {
-        return res
-          .status(400)
-          .json({ message: "Current password is incorrect" });
-      }
-
-      // Hash and set new password
-      const hashedPassword = await hashPassword(newPassword);
-      if (!hashedPassword) {
-        return res.status(500).json({ message: "Error hashing new password" });
-      }
-      user.password = hashedPassword;
-    }
 
     await user.save();
 
@@ -376,12 +361,10 @@ exports.addToFavorites = async (req, res, next) => {
     // Log the updated user
     console.log("Updated user:", user);
 
-    res
-      .status(200)
-      .json({
-        message: "Recipe added to favorites",
-        favorites: user.favorites,
-      });
+    res.status(200).json({
+      message: "Recipe added to favorites",
+      favorites: user.favorites,
+    });
   } catch (error) {
     console.error("Error adding to favorites:", error);
     next(error);
@@ -410,6 +393,87 @@ exports.removeFromFavorites = async (req, res, next) => {
     console.error("Remove from favorites error:", error);
     res.status(500).json({
       message: "Error removing recipe from favorites",
+      error: error.message,
+    });
+  }
+};
+
+// Get user's meal prep recipes
+exports.getMealPrepRecipes = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).populate("mealprep");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user.mealprep);
+  } catch (error) {
+    console.error("Get meal prep recipes error:", error);
+    res.status(500).json({
+      message: "Error retrieving meal prep recipes",
+      error: error.message,
+    });
+  }
+};
+
+// Add a recipe to meal prep
+exports.addToMealPrep = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const userId = req.user._id;
+
+    console.log("Adding to meal prep:", { userId, recipeId });
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if recipeId is valid
+    if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+      return res.status(400).json({ message: "Invalid recipe ID" });
+    }
+
+    if (user.mealprep.includes(recipeId)) {
+      return res.status(400).json({ message: "Recipe already in meal prep" });
+    }
+
+    user.mealprep.push(recipeId);
+    await user.save();
+
+    console.log("Updated user:", user);
+
+    res.status(200).json({
+      message: "Recipe added to meal prep",
+      mealprep: user.mealprep,
+    });
+  } catch (error) {
+    console.error("Error adding to meal prep:", error);
+    next(error);
+  }
+};
+
+// Remove a recipe from meal prep
+exports.removeFromMealPrep = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { mealprep: recipeId } },
+      { new: true }
+    ).populate("mealprep");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Recipe removed from meal prep",
+      mealprep: user.mealprep,
+    });
+  } catch (error) {
+    console.error("Remove from meal prep error:", error);
+    res.status(500).json({
+      message: "Error removing recipe from meal prep",
       error: error.message,
     });
   }

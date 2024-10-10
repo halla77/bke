@@ -11,6 +11,7 @@ const usersRouter = require("./api/users/users.routes.js");
 const recipeRouter = require("./api/recipe/recipe.Router.js");
 const ingredientRouter = require("./api/ingredient/ingredient.Router.js");
 const categorysRouter = require("./api/category/category.Router.js");
+const mealRouter = require("./api/meal/mealRouter.js");
 const passport = require("passport");
 const path = require("path");
 const {
@@ -41,6 +42,7 @@ app.use("/api/ingredients", ingredientRouter);
 app.use("/api/category", categorysRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/comments", commentRouter);
+app.use("/api/meal", mealRouter);
 app.use("/media", express.static(path.join(__dirname, "media")));
 
 // Not Found Handling middleware

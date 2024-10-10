@@ -275,50 +275,23 @@ const getDislikesForRecipe = async (req, res, next) => {
   }
 };
 
-const searchRecipes = async (req, res, next) => {
+const searchRecipes = async (searchParams) => {
   try {
-    const { query, cookTime, calories, ingredient, category } = req.query;
-
-    let searchCriteria = {};
-
-    if (query) {
-      searchCriteria.name = { $regex: query, $options: "i" };
-    }
-
-    if (cookTime) {
-      searchCriteria.timeToCook = { $lte: parseInt(cookTime) };
-    }
-
-    if (calories) {
-      searchCriteria.calories = { $lte: parseInt(calories) };
-    }
-
-    if (ingredient) {
-      const ingredientDoc = await Ingredient.findOne({
-        name: { $regex: ingredient, $options: "i" },
-      });
-      if (ingredientDoc) {
-        searchCriteria.ingredients = ingredientDoc._id;
-      }
-    }
-
-    if (category) {
-      const categoryDoc = await Category.findOne({
-        name: { $regex: category, $options: "i" },
-      });
-      if (categoryDoc) {
-        searchCriteria.category = categoryDoc._id;
-      }
-    }
-
-    const recipes = await Recipe.find(searchCriteria)
-      .populate("user", "username email")
-      .populate("category")
-      .populate("ingredients");
-
-    res.status(200).json(recipes);
+    const { data } = await instance.get("/recipes/search", {
+      params: searchParams,
+    });
+    return data.map((recipe) => ({
+      _id: recipe._id,
+      title: recipe.name,
+      calories: recipe.calories,
+      // ... other fields
+    }));
   } catch (error) {
-    next(error);
+    console.error(
+      "Error searching recipes:",
+      error.response?.data || error.message
+    );
+    throw error;
   }
 };
 

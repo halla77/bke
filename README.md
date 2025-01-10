@@ -22,18 +22,18 @@
 - Node.js
 - Express
 
-## Frontend Repository
+## Backend GitHub Link
 - [Backend Repository](#)
 
 ## Showcase Images
 Here are some images showcasing our website:
 
-![Image 1](url_to_your_image_1)
-![Image 2](url_to_your_image_2)
-![Image 3](url_to_your_image_3)
-![Image 4](url_to_your_image_4)
-![Image 5](url_to_your_image_5)
-![Image 6](url_to_your_image_6)
+![Display](Olives&Herbs Display.png)
+![Sign In](Olives&Herbs-signin.png)
+![Home](Olives&Herbs-home.png)
+![Recipe](Olives&Herbs-recipe.png)
+![Account](Olives&Herbs-account.png)
+![Create](Olives&Herbs-create.png)
 
 ## Contributors
 - Hala Almuatiri

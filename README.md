@@ -1,5 +1,5 @@
 # Olives & Herbs: Recipe Media Blog
-
+![Display](Olives&Herbs-Display.png)
 ## Description
 **Olives & Herbs** is an Arabic recipe social media blog where users can discover fresh, seasonal ingredients and create meals that celebrate Arabic culture.
 
@@ -28,7 +28,6 @@
 ## Showcase Images
 Here are some images showcasing our website:
 
-![Display](Olives&Herbs Display.png)
 ![Sign In](Olives&Herbs-signin.png)
 ![Home](Olives&Herbs-home.png)
 ![Recipe](Olives&Herbs-recipe.png)

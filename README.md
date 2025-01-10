@@ -23,7 +23,7 @@
 - Express
 
 ## Frontend GitHub 
-- [Frontend Repository](#https://github.com/halacoded/Olives-Herbs-Recipe-Media-Blog)
+- [Frontend Repository](https://github.com/halacoded/Olives-Herbs-Recipe-Media-Blog)
 
 ## Showcase Images
 Here are some images showcasing our website:
